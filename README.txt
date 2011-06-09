@@ -1,4 +1,4 @@
-ISBN2node 1.1 for Drupal 7.x
+ISBN2node 1.2 for Drupal 7.x
 ------------------------------
 
 This is a Drupal 7 module that will create nodes in a book archive based on
@@ -80,6 +80,21 @@ same run.
 This is the absolutely first instance of this module, and still just a crude
 sketch. I have used it intensively to create a register of my own books, and it
 basically seems to work as intended.
+
+
+Title-based addition
+------------------------------
+
+The module now supports title search (from version 1.2 and on), and will look
+for whole and partial titles and return the list of books found matching a given
+title. The first 10 will be shown with ISBN's, authors and a sample of the cover
+if possible, and you can then select one and continue to add it as in an
+ISBN-search.
+
+This is the absolutely first instance of this module, and still just a crude
+sketch. I have used it intensively to create a register of my own books,
+and it basically seems to work as intended.
+
 
 Future
 ------------------------------

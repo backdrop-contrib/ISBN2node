@@ -1,8 +1,9 @@
 name = ISBN2Node
 description = Fetch book info based on ISBN
 core = 7.x
-version = "7.x-1.1"
+version = "7.x-1.2"
 dependencies[] = image
 
 configure = admin/config/content/isbn2node
+
 
