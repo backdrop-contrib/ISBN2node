@@ -81,7 +81,6 @@ This is the absolutely first instance of this module, and still just a crude
 sketch. I have used it intensively to create a register of my own books, and it
 basically seems to work as intended.
 
-
 Title-based addition
 ------------------------------
 
@@ -90,11 +89,6 @@ for whole and partial titles and return the list of books found matching a given
 title. The first 10 will be shown with ISBN's, authors and a sample of the cover
 if possible, and you can then select one and continue to add it as in an
 ISBN-search.
-
-This is the absolutely first instance of this module, and still just a crude
-sketch. I have used it intensively to create a register of my own books,
-and it basically seems to work as intended.
-
 
 Future
 ------------------------------
