@@ -1,4 +1,4 @@
-    <?php
+<?php
 /**
  * @file
  * isbn2node module
@@ -26,11 +26,23 @@ function isbn2node_init() {
 
 /**
  * Implements hook_perm().
+ * Patched as per https://www.drupal.org/project/isbn2node/issues/1410780
  */
 function isbn2node_permission() {
-  return array('configure isbn2node' => array(
+  return array(
+      'configure isbn2node' => array(
       'title' => t('Administer ISBN2node'),
       'description' => t('Allow user to control settings for fetching book information through ISBNdb or Open Library.'),
+       ),
+ 
+       'add by isbn' => array(
+       'title' => t('Add by ISBN'),
+       'description' => t('Allow user to add a book via ISBN.'),
+       ),
+ 
+       'bulk add by isbn' => array(
+       'title' => t('Bulk add by ISBN'),
+       'description' => t('Allow user to use bulk add via ISBN.'),
     ),
   );
 }
@@ -63,6 +75,7 @@ function isbn2node_help($path, $arg) {
 
 /**
  * Implements hook_menu().
+ * Patched per issue https://www.drupal.org/project/isbn2node/issues/1410780
  */
 function isbn2node_menu() {
   $items = array();
@@ -84,7 +97,7 @@ function isbn2node_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('isbn2node_add_form'),
     'type' => MENU_NORMAL_ITEM | MENU_LOCAL_TASK,
-    'access arguments' => array('administer nodes'),
+    'access arguments' => array('add by isbn'),
     'weight' => 10,
   );
 
@@ -95,7 +108,7 @@ function isbn2node_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('isbn2node_bulk_form'),
     'type' => MENU_LOCAL_TASK,
-    'access arguments' => array('administer nodes'),
+    'access arguments' => array('bulk add by isbn'),
     'weight' => 20,
     'file' => 'isbn2node.bulk.inc',
   );
@@ -324,10 +337,14 @@ function isbn2node_form_alter(&$form, &$form_state, $form_id) {
               '#default_value' => 1,
             );
 
-            $form['isbn2node_use_img']['xisbn'] = array(
-              '#type' => 'hidden',
-              '#value' => $isbn2book_data['xisbn'],
-            );
+            // Patched per isbn2node/issues/1370940, patch #8
+ 	    // https://www.drupal.org/files/ISBN2node-fix_import_openlibrary_isbn-1370940-8.patch
+ 	    if (isset($isbn2book_data['xisbn'])) {
+               $form['isbn2node_use_img']['xisbn'] = array(
+                 '#type' => 'hidden',
+                 '#value' => $isbn2book_data['xisbn'],
+               );
+ 	    }
 
           }
           else {
@@ -378,10 +395,13 @@ function isbn2node_form_submit(&$form, &$form_state) {
 
 /*
  * Implements hook_submit
+ * Patched with https://www.drupal.org/files/ISBN2Node-save-error-1537468.patch
  */
 function isbn2node_node_submit($node) {
-  // Remove trailing commas from author field before submission
-  $node->isbn2node_author['und']['0']['value'] = rtrim(trim($node->isbn2node_author['und']['0']['value']), ',');
+  if (property_exists($node, 'isbn2node_author')) {
+    // Remove trailing commas from author field before submission
+    $node->isbn2node_author['und']['0']['value'] = rtrim(trim($node->isbn2node_author['und']['0']['value']), ',');
+  }
   return $node;
 }
 
