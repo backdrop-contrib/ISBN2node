@@ -6,13 +6,16 @@
 
 // Define the url's for fetching ISBN-data 
 define('ISBN2NODE_ISBNDB_URL', 'http://isbndb.com/api/books.xml?access_key=%access_key&results=details&index1=isbn&value1=%isbn_value');
-define('ISBN2NODE_OPENLIBRARY_BOOK_URL', 'http://openlibrary.org/api/books?bibkeys=ISBN:%isbn_value&jscmd=data&format=json');
+
+// Updated URL for API endpoint Feb 2024
+define('ISBN2NODE_OPENLIBRARY_BOOK_URL', 'https://openlibrary.org/search.json?isbn=%isbn_value');
 
 // Define the url's for fetching cover files
-define('ISBN2NODE_OPENLIBRARY_COVER_URL', 'http://covers.openlibrary.org/b/isbn/%isbn-%size.jpg');
+define('ISBN2NODE_OPENLIBRARY_COVER_URL', 'https://covers.openlibrary.org/b/isbn/%isbn-%size.jpg');
 
 // Define the url's for searching for titles
 define('ISBN2NODE_ISBNDB_TITLE_URL', 'http://isbndb.com/api/books.xml?access_key=%access_key&results=details&index1=title&value1=%title_value');
+define('ISBN2NODE_OPENLIBRARY_TITLE_URL', 'https://openlibrary.org/search.json?title=%title_value');
 
 
 /*
@@ -30,19 +33,19 @@ function isbn2node_init() {
  */
 function isbn2node_permission() {
   return array(
-      'configure isbn2node' => array(
+    'configure isbn2node' => array(
       'title' => t('Administer ISBN2node'),
       'description' => t('Allow user to control settings for fetching book information through ISBNdb or Open Library.'),
-       ),
- 
-       'add by isbn' => array(
-       'title' => t('Add by ISBN'),
-       'description' => t('Allow user to add a book via ISBN.'),
-       ),
- 
-       'bulk add by isbn' => array(
-       'title' => t('Bulk add by ISBN'),
-       'description' => t('Allow user to use bulk add via ISBN.'),
+    ),
+
+    'add by isbn' => array(
+      'title' => t('Add by ISBN'),
+      'description' => t('Allow user to add a book via ISBN.'),
+    ),
+
+    'bulk add by isbn' => array(
+      'title' => t('Bulk add by ISBN'),
+      'description' => t('Allow user to use bulk add via ISBN.'),
     ),
   );
 }
@@ -319,7 +322,7 @@ function isbn2node_form_alter(&$form, &$form_state, $form_id) {
   
           if ($image) {
 
-            // drupal_set_message(vad($form['isbn2node_cover']));
+            // _isbn2node_debug("form['isbn2node_cover']", $form['isbn2node_cover']);
   
             $form['isbn2node_use_img'] = array(
               '#title' => t('Cover image from OpenLibray'),
@@ -337,14 +340,14 @@ function isbn2node_form_alter(&$form, &$form_state, $form_id) {
               '#default_value' => 1,
             );
 
-            // Patched per isbn2node/issues/1370940, patch #8
- 	    // https://www.drupal.org/files/ISBN2node-fix_import_openlibrary_isbn-1370940-8.patch
- 	    if (isset($isbn2book_data['xisbn'])) {
-               $form['isbn2node_use_img']['xisbn'] = array(
-                 '#type' => 'hidden',
-                 '#value' => $isbn2book_data['xisbn'],
-               );
- 	    }
+	    // Patched per isbn2node/issues/1370940, patch #8
+	    // https://www.drupal.org/files/ISBN2node-fix_import_openlibrary_isbn-1370940-8.patch
+	    if (isset($isbn2book_data['xisbn'])) {
+              $form['isbn2node_use_img']['xisbn'] = array(
+                '#type' => 'hidden',
+                '#value' => $isbn2book_data['xisbn'],
+              );
+	    }
 
           }
           else {
@@ -512,7 +515,7 @@ function isbn2node_title_form_submit(&$form, &$form_state) {
             if (isset($val['attributes']['ISBN13'])) {
               $res[$i]['isbn13'] = $val['attributes']['ISBN13'];
             }
-          // drupal_set_message($ix . vad($val));
+          // _isbn2node_debug("$ix", $val);
         }
       }
     }
