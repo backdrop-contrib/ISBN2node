@@ -35,10 +35,12 @@ function _isbn2book_fetch_data($isbn = '') {
 
       // Get and parse the Json
       $json = file_get_contents($url);
-      // drupal_set_message(vad($json));
+      //changed from vad($json) to check_plain($json) vad() is unknown
+      //_isbn2node_debug('json',$json);
       $vals = json_decode($json);
-      if (count($vals) > 1) {
-        $vals->success = 1;
+      // Updated to 2024 OpenLibrary API which indicates if found or not
+      if ($vals->numFound > 0) {
+        $vals->success = TRUE;
       }
       else {
         $vals->success = FALSE;
@@ -113,16 +115,17 @@ function _isbn2node_isbndb_tags($fields = FALSE) {
  * Return the fields we want from the Json returned from Open Library
  * and their corresponding Drupal field names
  * @return an array of Json-fields and their corresponding Drupal fields
+ * Modified 2024 to match updated OpenLibrary API
  */
 function _isbn2node_openlib_tags() {
   return array(
-    'number_of_pages' => 'isbn2node_physical_description',
+    'number_of_pages_median' => 'isbn2node_physical_description',
     'title' => 'title',
     'subtitle' => 'isbn2node_subtitle',
-    'authors' => array(0 => array('name' => 'isbn2node_author')),
-    'publishers' => array(0 => array('name' => 'isbn2node_publisher')),
+    'author_name' => array(0 => array('name' => 'isbn2node_author')),
+    'publisher' => array(0 => array('name' => 'isbn2node_publisher')),
     'weight' => 'isbn2node_details',
-    'publish_date' => 'isbn2node_year',
+    'publish_year' => 'isbn2node_year',
   );
 }
 
@@ -193,7 +196,7 @@ function _isbn2node_parse($vals, $isbn) {
           if (isset($interesting[$v['tag']])) {
             switch ($v['tag']) {
               case 'DETAILS' :
-                // drupal_set_message(vad($v['attributes']));
+                // _isbn2node_debug("v['attributes']", $v['attributes']);
                 $fields = _isbn2node_isbndb_tags(TRUE);
                 foreach ($fields as $xml_field => $drupal_field) {
                   switch ($xml_field) {
@@ -221,19 +224,26 @@ function _isbn2node_parse($vals, $isbn) {
       break;
     
     case 'openlib' :
-      $qual = 'ISBN:' . $isbn;
-      if (isset($vals->$qual)) {
-        $vals = $vals->$qual;
+      // Match updated OpenLibrary API 2024
+      //$qual = 'numFound';
+      _isbn2node_debug('vals', $vals); // debug
+      if ($vals->success) {
+	_isbn2node_debug('$vals->success', $vals->success); // debug
+        //$vals = $vals->$qual;
+        $vals = $vals->docs[0];  // assume the first record is the right one
         $interesting = _isbn2node_openlib_tags();
+	_isbn2node_debug('$interesting', $interesting); // debug
         
         foreach ($interesting as $json => $drupal) {
+	  _isbn2node_debug('json', "$json"); // debug
+          _isbn2node_debug('drupal', $drupal); // debug
           $value = '';
           if (is_array($drupal)) {
             foreach ($drupal as $js => $dr) {
               foreach ($dr as $j => $d) {
                 if (isset($vals->$json)) {
                   $value = $vals->$json;
-                  $value = $value[0]->$j;
+                  $value = $value[0];
                   $isbn2book_data[$d] = $value;
                 }
               }
@@ -382,10 +392,11 @@ function _isbn2book_search_title($title) {
 
       // Get and parse the Json
       $json = file_get_contents($url);
-      // drupal_set_message(vad($json));
-      $vals = json_decode($json);
-      if (count($vals) > 1) {
-        $vals->success = 1;
+      // _isbn2node_debug('json', $json);
+      $vals = json_decode($json, False);
+      // Updated to 2024 OpenLibrary API which indicates if found
+      if ($vals->numFound > 0) {
+        $vals->success = TRUE;
       }
       else {
         $vals->success = FALSE;
@@ -395,4 +406,15 @@ function _isbn2book_search_title($title) {
   }
 
   return $vals;
+}
+
+
+/*
+ * Print debugging messages
+ */
+function _isbn2node_debug($varname, $vars) {
+  $debug = true;
+  if ($debug) {
+    drupal_set_message("<pre>$varname=" . print_r($vars, true) . '</pre>');
+  }
 }
