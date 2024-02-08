@@ -1,7 +1,7 @@
-ISBN2node 1.2 for Drupal 7.x
+ISBN2node 1.4 for Backdrop 1.x
 ------------------------------
 
-This is a Drupal 7 module that will create nodes in a book archive based on
+This is a Backdrop 1 module that will create nodes in a book archive based on
 ISBN's. ISBN's or International Standard Book Numbers are unique identifiers for
 books, and based on ISBN you can mostly gather quite a bit of information about
 a book as well as get a hold of its cover. The module will allow users to easily
@@ -40,9 +40,9 @@ The fields will be matched with fields in the online-databases as best possible.
 The databases do not follow a common standard, but have almost similar
 information.
 
-Once the module is installed, you can of course extend the content type with your
-own fields, add taxonomies, manipulate its display settings, use its fields in
-views etc.
+Once the module is installed, you can of course extend the content type with 
+your own fields, add taxonomies, manipulate its display settings, use its 
+fields in views etc.
 
 Manual addition
 ------------------------------
@@ -122,11 +122,3 @@ the list of ISBN's imported gets long enough. The immediate solution is to limit
 the number of ISBN's allowed per import, but the elegant one would be to use
 the batch API to handle large imports.
 
-- No D6 version
-There are no plans of a Drupal 6 version of this module. It's time to move on!
-
-The module does not use the already existing CCK-field ISBN. This is available
-for Drupal 6 only, and will at least need to be developed into Drupal 7 before
-it will work with this D7-only module. Upon a further development of the module,
-I may consider supporting it, but since its main task is to validate ISBN's on
-input, it's not really needed, but could certainly be nice to have.
