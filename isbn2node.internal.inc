@@ -12,18 +12,18 @@
  */
 function _isbn2book_fetch_data($isbn = '') {
   $config = config('isbn2node.settings');
-  // This data ought to be cached locally since ISBNdb only allows a certain number of calls each day
+  // @todo This data ought to be cached locally since ISBNdb only allows a certain number of calls each day.
 
 
   switch ($config->get('isbn2node_db')) {
     case 'isbndb':
-      // Form the url
+      // Form the url.
 
       $url = str_replace(array('%access_key', '%isbn_value'),
         array($config->get('isbn2node_isbndb_access_key'), $isbn),
         ISBN2NODE_ISBNDB_URL);
 
-      // Get and parse the XML
+      // Get and parse the XML.
 
       $xml = file_get_contents($url);
       $p = xml_parser_create();
@@ -37,15 +37,10 @@ function _isbn2book_fetch_data($isbn = '') {
         $isbn,
         ISBN2NODE_OPENLIBRARY_BOOK_URL);
 
-      // Get and parse the Json
-
+      // Get and parse the Json information from Open Library.
       $json = file_get_contents($url);
-      //changed from vad($json) to check_plain($json) vad() is unknown
-
       //_isbn2node_debug('json',$json);
-
       $vals = json_decode($json);
-      // Updated to 2024 OpenLibrary API which indicates if found or not
       
       if ($vals->numFound > 0) {
         $vals->success = TRUE;
@@ -62,15 +57,14 @@ function _isbn2book_fetch_data($isbn = '') {
 
 
 /*
- * Check that the settings have been set before allowing use of module forms
+ * Check that the settings have been set before allowing use of module forms.
+ *
  * @param &$form a form array
- * @return TRUE on success, false on missing sertup and form altered to show error
+ *
+ * @return bool
+ *   TRUE on success, FALSE on missing setup and form altered to show error.
  */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function _isbn2node_check_settings($form) {
+function _isbn2node_check_settings(&$form) {
   $config = config('isbn2node.settings');
   $ok = TRUE;
   if (!$config->get('isbn2node_db')) {
@@ -163,26 +157,24 @@ function _isbn2book_normalize_isbn($isbn) {
 
 /*
  * Find cover image
+ *
  * @param $isbn An ISBN
+ * @param $size Desired cover image size (S / M / L)
+ *
  * @return url of the cover file if found or FALSE if not
  */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
 function _isbn2node_fetch_cover($isbn, $size = 'L') {
-  // Form the url
 
+  // Form the url.
   $url = str_replace(array('%isbn', '%size'),
     array($isbn, $size),
     ISBN2NODE_OPENLIBRARY_COVER_URL);
+  //_isbn2node_debug('image url', $url);
 
-  // Try to get the size
-
+  // Try to get the size.
   $size = @getimagesize($url);
 
-  // Openlibrary returns a 1x1 pixel image on failure. Anything bigger is OK
-
+  // Openlibrary returns a 1x1 pixel image on failure. Anything bigger is OK.
   if ($size[0] > 1) {
     return $url;
   }
@@ -193,28 +185,32 @@ function _isbn2node_fetch_cover($isbn, $size = 'L') {
 
 
 /*
- * Parse values from book databases
- * @param $vals or object with book data
- * @param $isbn ISBN to work on
- * @return array with fields corresponding to the isbn2node content type
-  */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Parse values from either of the book databases.
+ *
+ * @param object $vals 
+ *   The book data obtained from the chosen database.
+ * @param string $isbn
+ *   The ISBN of the book we are working on.
+ *
+ * @return array
+ *   Array of book data with fields corresponding to the isbn2node content type.
  */
 function _isbn2node_parse($vals, $isbn) {
+  //_isbn2node_debug('vals', $vals);
+
   $isbn2book_data = array();
+
   switch (config_get('isbn2node.settings', 'isbn2node_db')) {
     case 'isbndb':
-      // Work on the returned values
 
+      // Work on the returned values.
       if ($vals['1']['attributes']['TOTAL_RESULTS']) {
 
         $interesting = _isbn2node_isbndb_tags();
 
         foreach ($vals as $v) {
 
-          // Get extra ISBN for backup cover check
+          // Get extra ISBN for backup cover check.
 
           if (is_array($v)) {
             if (isset($v['attributes']) && is_array($v['attributes'])) {
@@ -236,7 +232,7 @@ function _isbn2node_parse($vals, $isbn) {
                 foreach ($fields as $xml_field => $backdrop_field) {
                   switch ($xml_field) {
                     case 'EDITION_INFO':
-                      // Handle edition/year
+                      // Handle edition/year.
 
                       $parts = explode(';', $v['attributes'][$xml_field]);
                       if (isset($parts[1])) {
@@ -260,27 +256,19 @@ function _isbn2node_parse($vals, $isbn) {
       break;
 
     case 'openlib':
-      // Match updated OpenLibrary API 2024
-
-      //$qual = 'numFound';
-
-      _isbn2node_debug('vals', $vals); // debug
 
       if ($vals->success) {
-        _isbn2node_debug('$vals->success', $vals->success); // debug
+        //_isbn2node_debug('$vals->success', $vals->success);
 
-        //$vals = $vals->$qual;
-
-        $vals = $vals->docs[0]; // assume the first record is the right one
+	// Assume the first record is the right one.
+        $vals = $vals->docs[0]; 
 
         $interesting = _isbn2node_openlib_tags();
-        _isbn2node_debug('$interesting', $interesting); // debug
+        //_isbn2node_debug('$interesting', $interesting);
 
 
         foreach ($interesting as $json => $backdrop) {
-          _isbn2node_debug('json', "$json"); // debug
-
-          _isbn2node_debug('backdrop', $backdrop); // debug
+          //_isbn2node_debug("json $json -> backdrop", $backdrop);
 
           $value = '';
           if (is_array($backdrop)) {
@@ -309,12 +297,10 @@ function _isbn2node_parse($vals, $isbn) {
 
 
 /*
- * Make and save a node based on a fields array
- * @param $fields array of node fields for isbn2node_book content type
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Make and save a node based on a fields array.
+ *
+ * @param array $fields
+ *   Array containing data for fields for isbn2node_book content type.
  */
 function _isbn2node_make_node($fields) {
   global $user;
@@ -332,16 +318,16 @@ function _isbn2node_make_node($fields) {
   $node->timestamp = time();
   $node->revision = 0;
 
-  // Remove title
+  // Remove title.
 
   unset($fields['title']);
 
-  // Handle the rest of the fields
+  // Handle the rest of the fields.
 
   foreach ($fields as $field => $value) {
     if ($field == 'isbn2node_cover') {
       $cover = array('fid' => 0);
-      // Handle special structure for image field
+      // Handle special structure for image field.
 
       foreach ($value as $k => $v) {
         $cover[$k] = $v;
@@ -349,7 +335,7 @@ function _isbn2node_make_node($fields) {
       $node->$field = array('und' => array(0 => $cover));
     }
     else {
-      // Transfer normal field
+      // Transfer normal field.
 
       $node->$field = array('und' => array(0 => array('value' => $value)));
     }
@@ -372,26 +358,23 @@ function _isbn2node_make_node($fields) {
 
 
 /*
- * Get cover file and create file object in database
- * @param $isbn ISBN to look for
- * @return populated file object on succes, empty file object (->fid = 0) on failure
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Get cover file and create file object in database.
+ *
+ * @param string $isbn
+ *   ISBN of book whose cover we are looking for.
+ *
+ * @return object
+ *   Populated file object on success, empty file object (->fid = 0) on fail.
  */
 function _isbn2node_save_cover($isbn, $xisbn = '') {
-  // Create empty file object
-
+  // Create empty file object.
   $file = new stdClass();
   $file->fid = 0;
 
-  // Use backup ISBN if set
-
+  // Use backup ISBN if set.
   $isbn = $xisbn ? $xisbn : $isbn;
 
-  // Create URL and set filename of local file
-
+  // Create URL and set filename of local file.
   $url = _isbn2node_fetch_cover($isbn);
 
   if ($url) {
@@ -399,12 +382,10 @@ function _isbn2node_save_cover($isbn, $xisbn = '') {
 
     $filename = 'cover_' . $isbn . '.' . $parts['extension'];
 
-    // Fetch cover file
-
+    // Fetch cover file.
     $file_temp = file_get_contents($url);
     if ($file_temp) {
-      // Create file in database
-
+      // Create file in database.
       $file = file_save_data($file_temp, 'public://' . $filename, FILE_EXISTS_RENAME);
     }
   }
@@ -414,13 +395,13 @@ function _isbn2node_save_cover($isbn, $xisbn = '') {
 
 
 /*
- * Check for ISBN already in database
- * @param $isbn ISBN to look for
- * @return FALSE if none found, assoc array of results if any found
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Check for ISBN already in database.
+ *
+ * @param string $isbn 
+ *   ISBN to look for.
+ *
+ * @return bool | array
+ *   FALSE if none found, assoc array of results if any found.
  */
 function _isbn2node_isbn_exists($isbn) {
   return db_select('field_data_isbn2node_isbn', 'nid')
@@ -438,18 +419,18 @@ function _isbn2node_isbn_exists($isbn) {
  */
 function _isbn2book_search_title($title) {
   $config = config('isbn2node.settings');
-  // This data ought to be cached locally since ISBNdb only allows a certain number of calls each day
+  // @todo This data ought to be cached locally since ISBNdb only allows a certain number of calls each day.
 
 
   switch ($config->get('isbn2node_db')) {
     case 'isbndb':
-      // Form the url
+      // Form the url.
 
       $url = str_replace(array('%access_key', '%title_value'),
         array($config->get('isbn2node_isbndb_access_key'), urlencode($title)),
         ISBN2NODE_ISBNDB_TITLE_URL);
 
-      // Get and parse the XML
+      // Get and parse the XML.
 
       $xml = file_get_contents($url);
       $p = xml_parser_create();
@@ -463,14 +444,15 @@ function _isbn2book_search_title($title) {
         $isbn,
         ISBN2NODE_OPENLIBRARY_BOOK_URL);
 
-      // Get and parse the Json
+      // Get and parse the Json.
 
       $json = file_get_contents($url);
       // _isbn2node_debug('json', $json);
 
       $vals = json_decode($json, False);
-      // Updated to 2024 OpenLibrary API which indicates if found
 
+      // The API will return 0 as numFound if no matching records are found,
+      // and the number found if any are.
       if ($vals->numFound > 0) {
         $vals->success = TRUE;
       }
@@ -486,15 +468,16 @@ function _isbn2book_search_title($title) {
 
 
 /*
- * Print debugging messages
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Print debugging messages.
+ *
+ * @param string $varname
+ *   The name of the variable to be displayed, or other descriptive string.
+ * @param mixed $vars
+ *   The variable(s) to be displayed in the debug message.
  */
 function _isbn2node_debug($varname, $vars) {
   $debug = true;
   if ($debug) {
-    backdrop_set_message("<pre>$varname=" . print_r($vars, true) .  '</pre>');
+    backdrop_set_message("<pre>DEBUG: $varname=" . print_r($vars, true) .  '</pre>');
   }
 }

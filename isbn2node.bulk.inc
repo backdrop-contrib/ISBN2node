@@ -56,7 +56,7 @@ function isbn2node_bulk_form() {
  * @todo Please document this function.
  * @see http://drupal.org/node/1354
  */
-function isbn2node_bulk_form_submit($form, $form_state) {
+function isbn2node_bulk_form_submit($form, &$form_state) {
   // Fetch book data for a list of ISBN's
 
 
