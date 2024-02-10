@@ -1,11 +1,14 @@
 ISBN2node 1.4 for Backdrop 1.x
 =========
 
-ISBN2node enables you to create nodes in a book archive based on ISBN's. 
+ISBN2node enables you to create nodes in a book archive based on ISBN's.
 ISBN's or International Standard Book Numbers are unique identifiers for
 books, and based on ISBN you can gather quite a bit of information about
 a book as well as find its cover. The module will allow users to easily
 build archives of physical books based on these book's ISBN's.
+
+The module creates a new content type called ISBN2node-book, which can
+be configured.
 
 
 Required Modules
@@ -24,10 +27,13 @@ Installation
   https://docs.backdropcms.org/documentation/extend-with-modules.
 
 - Visit the configuration page under Administration > Configuration > Content >
-  ISBN2node (admin/config/content/isbn2node). You may change the name of the
-  new content type, add fields, etc.
+  ISBN2node (admin/config/content/isbn2node) and select your preferred
+  ISBN DB. If you select ISBNdb, you will need to acquire an access key.
 
-- @todo Additional steps go here...
+- (Optional) You may choose to configure the content type created by this
+  module at Administration > Structure > Content types > ISBN2node-book
+  (admin/structure/types/manage/isbn2node_book). From here you can change
+  the name of the new content type, add fields, etc.
 
 
 Documentation
