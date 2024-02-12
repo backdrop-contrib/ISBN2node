@@ -8,22 +8,18 @@
 define('ISBN2NODE_ISBNDB_URL', 'http://isbndb.com/api/books.xml?access_key=%access_key&results=details&index1=isbn&value1=%isbn_value');
 
 // URL for Open Library API endpoint for ISBN searches.
-define('ISBN2NODE_OPENLIBRARY_BOOK_URL', 'https://openlibrary.org/search.json?isbn=%isbn_value');
+define('ISBN2NODE_OPENLIBRARY_ISBN_URL', 'https://openlibrary.org/search.json?isbn=%isbn_value');
 
 // Define the url's for fetching cover files.
 define('ISBN2NODE_OPENLIBRARY_COVER_URL', 'https://covers.openlibrary.org/b/isbn/%isbn-%size.jpg');
 
 // Define the url's for searching for titles.
 define('ISBN2NODE_ISBNDB_TITLE_URL', 'http://isbndb.com/api/books.xml?access_key=%access_key&results=details&index1=title&value1=%title_value');
-define('ISBN2NODE_OPENLIBRARY_TITLE_URL', 'https://openlibrary.org/search.json?title=%title_value');
+define('ISBN2NODE_OPENLIBRARY_TITLE_URL', 'https://openlibrary.org/search.json?q=%title_value');
 
 
 /*
- * Implements hook_init()
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Implements hook_init().
  */
 function isbn2node_init() {
   // Load file containing private module functions.
@@ -34,7 +30,6 @@ function isbn2node_init() {
 
 /**
  * Implements hook_perm().
- * Patched as per https://www.drupal.org/project/isbn2node/issues/1410780
  */
 function isbn2node_permission() {
   return array(
@@ -81,13 +76,12 @@ function isbn2node_help($path, $arg) {
 
 /**
  * Implements hook_menu().
- * Patched per issue https://www.drupal.org/project/isbn2node/issues/1410780
+ * Configures which users can add books using this module.
  */
 function isbn2node_menu() {
   $items = array();
 
   // Settings menu.
-
   $items['admin/config/content/isbn2node'] = array(
     'title' => 'ISBN to node',
     'description' => 'Configure ISBN lookup.',
@@ -98,10 +92,9 @@ function isbn2node_menu() {
   );
 
   // Add ISBN book via lookup.
-
   $items['node/add/isbn2node_book/isbn2node'] = array(
-    'title' => 'ISBN book by lookup',
-    'description' => 'Enter the ISBN for a book and populate an ISBN-book based on the data fetched.',
+    'title' => 'Look up by ISBN',
+    'description' => 'Enter the ISBN for a book and populate an ISBN-book record based on the data fetched.',
     'page callback' => 'backdrop_get_form',
     'page arguments' => array('isbn2node_add_form'),
     'type' => MENU_NORMAL_ITEM | MENU_LOCAL_TASK,
@@ -109,8 +102,7 @@ function isbn2node_menu() {
     'weight' => 10,
   );
 
-  // Bulk add ISBN books.
-
+  // Bulk add books using a list of ISBNs.
   $items['node/add/isbn2node_book/bulk'] = array(
     'title' => 'ISBN book bulk import',
     'description' => 'Enter a series of ISBN and create nodes based on lookups.',
@@ -122,20 +114,18 @@ function isbn2node_menu() {
     'file' => 'isbn2node.bulk.inc',
   );
 
-  // Title search.
-
+  // Title / keyword search.
   $items['node/add/isbn2node_book/title'] = array(
-    'title' => 'ISBN title search',
-    'description' => 'Search for books through titles.',
+    'title' => 'Title/ keyword search',
+    'description' => 'Search for books through keywords, e.g. title and author.',
     'page callback' => 'backdrop_get_form',
     'page arguments' => array('isbn2node_title_form'),
     'type' => MENU_LOCAL_TASK,
-    'access arguments' => array('administer nodes'),
+    'access arguments' => array('add by isbn'),
     'weight' => 30,
   );
 
   // Add an ISBN book taking the ISBN from the URL.
-
   $items['node/add/isbn2node_book/manual/%'] = array(
     'title' => 'ISBN book with ISBN filled out',
     'description' => 'Go to the form and fill out ISBN from URL.',
@@ -161,7 +151,7 @@ function isbn2node_config_info() {
 }
 
 /**
- * Create the settings form.
+ * Create the module settings form.
  *
  * This form serves both as the launch form for the debug run
  * and as the result display when it has run.
@@ -202,8 +192,8 @@ function isbn2node_settings_form($form, &$form_state) {
  * and return to the main form.
  */
 function isbn2node_settings_form_submit($form, &$form_state) {
-  // Save the values.
 
+  // Save the values.
   config_set('isbn2node.settings', 'isbn2node_db', $form_state['values']['isbn2node_db']);
   config_set('isbn2node.settings', 'isbn2node_isbndb_access_key', $form_state['values']['isbn2node_isbndb_access_key']);
   backdrop_set_message(t('Your settings have been saved'));
@@ -211,11 +201,12 @@ function isbn2node_settings_form_submit($form, &$form_state) {
 
 
 /*
- * Present the add single ISBN form
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Present the add single ISBN form.
+ *
+ * @param string $isbn 
+ *   ISBN to look for.
+ * @return form
+ *   Returns the form for adding a (single) book using its ISBN.
  */
 function isbn2node_add_form($isbn = '') {
   $form = array();
@@ -226,8 +217,8 @@ function isbn2node_add_form($isbn = '') {
       '#title' => t('ISBN'),
       '#type' => 'textfield',
       '#required' => TRUE,
-      '#default_value' => $isbn,
-      '#description' => t('Enter the full ISBN for the book.'),
+      '#default_value' => '', // @todo  Was $isbn, but it's somehow an array.
+      '#description' => t('Enter the 10- or 13-digit ISBN for the book.'),
     );
 
     // Buttons.
@@ -251,18 +242,13 @@ function isbn2node_add_form($isbn = '') {
 /*
  * Validate the add single ISBN form
  */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
 function isbn2node_add_form_validate($form) {
-  // Check for an existing book with this ISBN.
 
+  // Check for an existing book with this ISBN.
   $isbn = _isbn2book_normalize_isbn($form['isbn']['#value']);
   $result = _isbn2node_isbn_exists($isbn);
 
   // Anything? Set a form error.
-
   if ($result) {
     form_error($form['isbn'], t('You already have <a href="@view">a book with the ISBN @isbn</a>.<br /><a href="@edit">Edit it here</a>, or <a href="@delete">delete it</a> before adding it again.',
       array(
@@ -283,7 +269,7 @@ function isbn2node_add_form_validate($form) {
   }
 
   if (!$success) {
-    form_error($form['isbn'], t('Didn\'t find any results on the ISBN @isbn. <a href="!url">Create a book manully with this ISBN</a>?',
+    form_error($form['isbn'], t('Didn\'t find any results on the ISBN @isbn. <a href="!url">Create a book manually with this ISBN</a>?',
                                 array('@isbn' => $isbn, '!url' => url('node/add/isbn2node_book/manual/' . $isbn))));
   }
 }
@@ -293,8 +279,10 @@ function isbn2node_add_form_validate($form) {
  * Submit handler for the add single ISBN form.
  * Fetches book data and goes on to the normal node/add form.
  *
- * @param $form The "search by ISBN" form object.
- * @param $form_state The current form values.
+ * @param array $form
+ *   The "search by ISBN" form object.
+ * @param array $form_state
+ *   The current form values.
  */
 function isbn2node_add_form_submit($form, &$form_state) {
   // Fetch book data and parse it.
@@ -317,29 +305,25 @@ function isbn2node_add_form_submit($form, &$form_state) {
 
 
 /*
- * Submit handler for the add single ISBN form
- * Fetches book data and goes on to the normal node/add form
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Add a book "manually" giving its ISBN in the url. URHERE
+ * Fetches book data and goes on to the normal node/add form.
+ *
+ * @param string $isbn
+ *   The ISBN of the book to add.
  */
 function isbn2node_add_manual($isbn) {
-  // Fetch book data and parse it.
 
+  // Fetch book data and parse it.
   $isbn = _isbn2book_normalize_isbn($isbn);
   $isbn2book_data = array();
-  // Insert ISBN into book data array.
 
+  // Insert ISBN into book data array.
   $isbn2book_data['isbn2node_isbn'] = $isbn;
 
   // Save data for next step.
-
   // This ought to be session based to avoid clashes with other user's node submissions.
-
   config_set('isbn2node.settings', 'isbn2node_data', serialize($isbn2book_data));
   backdrop_goto('node/add/isbn2node-book');
-
 }
 
 
@@ -418,7 +402,7 @@ function isbn2node_form_alter(&$form, &$form_state, $form_id) {
           }
         }
 
-	// _isbn2node_debug('form=', $form);
+        // _isbn2node_debug('form=', $form);
 
         // We remove the previously fetched data to avoid clashes with normal node adds.
         config_clear('isbn2node.settings', 'isbn2node_data');
@@ -430,11 +414,7 @@ function isbn2node_form_alter(&$form, &$form_state, $form_id) {
 
 
 /*
- * Submit handler for single ISBN
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Submit handler for the form to add a book "manually."
  */
 function isbn2node_form_submit(&$form, &$form_state) {
   // User asked for preloaded cover.
@@ -459,11 +439,6 @@ function isbn2node_form_submit(&$form, &$form_state) {
 
 /*
  * Implements hook_submit
- * Patched with https://www.drupal.org/files/ISBN2Node-save-error-1537468.patch
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
  */
 function isbn2node_node_submit($node) {
   if (property_exists($node, 'isbn2node_author')) {
@@ -475,14 +450,18 @@ function isbn2node_node_submit($node) {
 }
 
 /*
- * Form for title search
- * Two steps
- * 1: title field
- * 2: select single title to fetch
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Create form for title/ keyword search.
+ * Two steps:
+ * 1: Get the user's input in the title/keyword field.
+ * 2: List the found titles and ask user to select a single title to fetch.
+ *
+ * @param array $form
+ *   The "search by ISBN" form object.
+ * @param array $form_state
+ *   The current form values.
+ *
+ * @return array
+ *   The form object.
  */
 function isbn2node_title_form($form, &$form_state) {
   $form = array();
@@ -491,12 +470,12 @@ function isbn2node_title_form($form, &$form_state) {
     if (_isbn2node_check_settings($form)) {
 
       $form['title'] = array(
-        '#title' => t('Book title'),
+        '#title' => t('Book keywords'),
         '#type' => 'textfield',
         '#required' => TRUE,
         '#default_value' => '',
         '#required' => TRUE,
-        '#description' => t('Enter a title to search for.'),
+        '#description' => t('Enter keywords to search for, e.g. a title and/or author.'),
       );
 
       $submit = t('Search');
@@ -508,13 +487,17 @@ function isbn2node_title_form($form, &$form_state) {
   }
   else {
     $options = array();
+
     // Display a message with the submitted value.
+    foreach ($form_state['storage']['titles'] as $currentBook) {
 
-    foreach ($form_state['storage']['titles'] as $title) {
+      $img = _isbn2node_fetch_cover($currentBook['isbn'], 'S');
 
-      $img = _isbn2node_fetch_cover($title['isbn'], 'S');
-
-      $options[$title['isbn']] = $title['title'] . ' - <em>' . $title['author'] . '</em> - ISBN: ' . $title['isbn'] . '/' . $title['isbn13'] . ($img ? '<br />' . theme('image', array('path' => $img)) . '<br />' : '');
+      $options[$currentBook['isbn']] = '<p class=isbn2node_form>'
+        . ($img ? theme('image', array('path' => $img)) : '')
+        . ' <em>' . $currentBook['title'] . '</em>' //. '<br>'
+        . ' by ' . $currentBook['author'] . '<br>'
+        . ' ISBN: ' . $currentBook['isbn'] . ' / ' . $currentBook['isbn13'] . '</p>';
     }
 
     $form['isbn'] = array(
@@ -531,7 +514,6 @@ function isbn2node_title_form($form, &$form_state) {
   }
 
   // Buttons.
-
   $form['buttons']['save'] = array(
     '#type' => 'submit',
     '#value' => $submit,
@@ -543,67 +525,74 @@ function isbn2node_title_form($form, &$form_state) {
 
 
 /*
- * Submnit handler for title search
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Submnit handler for title / keyword search form.
  */
 function isbn2node_title_form_submit(&$form, &$form_state) {
 
   if (isset($form_state['values']['isbn'])) {
     // Submit as on manual ISBN search.
-
     isbn2node_add_form_submit($form, $form_state);
   }
   else {
     // Look for title.
-
     $title = trim($form_state['values']['title']);
 
     $vals = _isbn2book_search_title($title);
-    $i = 1;
     $res = array();
 
-    if ($vals[1]['attributes']['TOTAL_RESULTS'] > 0) {
+    // If we found at least one result, make a select form for the user.
+    if ($vals->numFound > 0) {
+      backdrop_set_message(t('Found @num records.', array('@num' => $vals->numFound)), 'message');
 
-      if ($vals[1]['attributes']['TOTAL_RESULTS'] > 10) {
-        backdrop_set_message(t('Found @num titles. You may want to narrow down your search', array('@num' => $vals[1]['attributes']['TOTAL_RESULTS'])), 'warning');
+      // If we found too many results, advise adding more keywords.
+      if ($vals->numFound > 10) {
+        backdrop_set_message(t('You may want to add more keywords to narrow down your search.'), 'warning');
       }
 
-      foreach ($vals as $ix => $val) {
-        switch ($val['tag']) {
-          case 'TITLE':
-            if (isset($val['value'])) {
-              $res[$i]['title'] = $val['value'];
-            }
-            break;
+      $j = 0;
+      //for ($i=$vals->start; $i<$vals->numFound; $i++) { // real code
+      for ($i=$vals->start; $i<min(10,$vals->numFound); $i++) { // debug only
+        $currentBook = $vals->docs[$i];
 
-          case 'AUTHORSTEXT':
-            if (isset($val['value'])) {
-              $res[$i]['author'] = $val['value'];
-              $i++;
+        $res[$i+$j]['title'] = $currentBook->title ?? '';
+        $res[$i+$j]['author'] = (isset($currentBook->author_name) 
+          ? join(' & ', $currentBook->author_name) : Array(''));
+        if (isset($currentBook->isbn)) {
+          if (count($currentBook->isbn) <= 2) {
+            $res[$i+$j]['isbn'] = min($currentBook->isbn);
+            $res[$i+$j]['isbn13'] = max($currentBook->isbn);
+          }
+          else {
+            // Assuming that ISBNs are paired with both 10- and 13-digit,
+            // go through the first half of the set and add them and the
+            // matched ISBN-13's to results.
+            for ($k=0; $k<intdiv(count($currentBook->isbn),2); $k++) {
+              sort($currentBook->isbn, SORT_NUMERIC);
+              $res[$i+$j]['title'] = $currentBook->title ?? '';
+              $res[$i+$j]['author'] = (isset($currentBook->author_name) 
+                ? join(' & ', $currentBook->author_name) : Array(''));
+              $isbn10 = $currentBook->isbn[$k];
+              $res[$i+$j]['isbn'] = $isbn10;
+              $temp = substr($isbn10, 0, -1);
+              $temp = preg_grep("/978$temp/", $currentBook->isbn);
+              $res[$i+$j]['isbn13'] = array_pop($temp) ?? '';
+              $j++;
             }
-            break;
-
-          case 'BOOKDATA':
-            if (isset($val['attributes']['ISBN'])) {
-              $res[$i]['isbn'] = $val['attributes']['ISBN'];
-            }
-            if (isset($val['attributes']['ISBN13'])) {
-              $res[$i]['isbn13'] = $val['attributes']['ISBN13'];
-            }
-            // _isbn2node_debug("$ix", $val);
-
+          }
+        }
+        else {
+          $res[$i+$j]['isbn'] = '';
+          $res[$i+$j]['isbn13'] = '';
         }
       }
+      //_isbn2node_debug('$res', $res);
+
     }
     else {
       backdrop_set_message(t('No titles found matching @title', array('@title' => $title)), 'warning');
     }
 
-    // Tell FAPI to rebuild.
-
+    // Tell Form API to rebuild with the new values we're adding.
     $form_state['rebuild'] = TRUE;
     $form_state['storage']['titles'] = $res;
   }

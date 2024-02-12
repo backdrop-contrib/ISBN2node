@@ -7,8 +7,12 @@
 
 /*
  * Get book data from external database
- * @param $isbn = ISBN of book
- * @return an array of values
+ *
+ * @param string $isbn
+ *   ISBN of book to look up
+ *
+ * @return array
+ *   Array of values obtained from book database.
  */
 function _isbn2book_fetch_data($isbn = '') {
   $config = config('isbn2node.settings');
@@ -35,13 +39,15 @@ function _isbn2book_fetch_data($isbn = '') {
     case 'openlib':
       $url = str_replace('%isbn_value',
         $isbn,
-        ISBN2NODE_OPENLIBRARY_BOOK_URL);
+        ISBN2NODE_OPENLIBRARY_ISBN_URL);
 
       // Get and parse the Json information from Open Library.
       $json = file_get_contents($url);
       //_isbn2node_debug('json',$json);
       $vals = json_decode($json);
       
+      // The API will return 0 as numFound if no matching records are found,
+      // and the number found if any are.
       if ($vals->numFound > 0) {
         $vals->success = TRUE;
       }
@@ -59,10 +65,11 @@ function _isbn2book_fetch_data($isbn = '') {
 /*
  * Check that the settings have been set before allowing use of module forms.
  *
- * @param &$form a form array
+ * @param array &$form
+ *   An array reference to the form.
  *
  * @return bool
- *   TRUE on success, FALSE on missing setup and form altered to show error.
+ *   TRUE on success, FALSE on missing setup, with form altered to show error.
  */
 function _isbn2node_check_settings(&$form) {
   $config = config('isbn2node.settings');
@@ -96,13 +103,13 @@ function _isbn2node_check_settings(&$form) {
 
 /*
  * Return the fields we want from the XML returned from ISBNdb
- * and their corresponding Backdrop field names
- * @param $fields, if set the attribute fields are returned, else return main fields
- * @return an array of XML-fields and their corresponding Backdrop fields
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * and their corresponding Backdrop field names.
+ *
+ * @param array $fields
+ *   If set, the attribute fields are returned, else return main fields.
+ *
+ * @return array
+ *   An array of XML-fields and their corresponding Backdrop fields.
  */
 function _isbn2node_isbndb_tags($fields = FALSE) {
   if ($fields) {
@@ -124,13 +131,11 @@ function _isbn2node_isbndb_tags($fields = FALSE) {
 
 /*
  * Return the fields we want from the Json returned from Open Library
- * and their corresponding Backdrop field names
- * @return an array of Json-fields and their corresponding Backdrop fields
- * Modified 2024 to match updated OpenLibrary API
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * and their corresponding Backdrop field names.
+ *
+ * @return array
+ *   Array of Json-fields and their corresponding Backdrop fields within
+ *   the ISBN2node-book content type.
  */
 function _isbn2node_openlib_tags() {
   return array(
@@ -146,9 +151,12 @@ function _isbn2node_openlib_tags() {
 
 
 /*
- * Fix ISBN to be digits only
- * @param $isbn An ISBN
- * @return The sanitized ISBN
+ * Fix ISBN to be digits (and possibly X) only by removing dashes and spaces.
+ *
+ * @param string $isbn 
+ *   An ISBN.
+ * @return string
+ *   The sanitized ISBN.
  */
 function _isbn2book_normalize_isbn($isbn) {
   return trim(str_replace(array(' ', '-'), '', $isbn));
@@ -158,10 +166,13 @@ function _isbn2book_normalize_isbn($isbn) {
 /*
  * Find cover image
  *
- * @param $isbn An ISBN
- * @param $size Desired cover image size (S / M / L)
+ * @param string $isbn
+ *   An ISBN.
+ * @param string $size
+ *   Desired cover image size (S / M / L).
  *
- * @return url of the cover file if found or FALSE if not
+ * @return string | false
+ *   URL of the cover file if found or FALSE if not.
  */
 function _isbn2node_fetch_cover($isbn, $size = 'L') {
 
@@ -171,11 +182,12 @@ function _isbn2node_fetch_cover($isbn, $size = 'L') {
     ISBN2NODE_OPENLIBRARY_COVER_URL);
   //_isbn2node_debug('image url', $url);
 
-  // Try to get the size.
+  // Try to get the size. Suppress the warning because there's no way to
+  // catch it with an exception handler. We'll check validity later.
   $size = @getimagesize($url);
 
   // Openlibrary returns a 1x1 pixel image on failure. Anything bigger is OK.
-  if ($size[0] > 1) {
+  if (is_array($size) && $size[0] > 1) {
     return $url;
   }
   else {
@@ -260,7 +272,7 @@ function _isbn2node_parse($vals, $isbn) {
       if ($vals->success) {
         //_isbn2node_debug('$vals->success', $vals->success);
 
-	// Assume the first record is the right one.
+        // Assume the first record is the right one.
         $vals = $vals->docs[0]; 
 
         $interesting = _isbn2node_openlib_tags();
@@ -286,7 +298,18 @@ function _isbn2node_parse($vals, $isbn) {
             if (isset($vals->$json)) {
               $value = $vals->$json;
             }
-            $isbn2book_data[$backdrop] = ($backdrop == 'isbn2node_physical_description')?t('@pages pages', array('@pages' => $value)) : $value;
+            switch ($backdrop) {
+              case 'isbn2node_physical_description':
+                $isbn2book_data[$backdrop] = t('@pages pages', array('@pages' => $value));
+                break;
+              case 'isbn2node_year':
+	      // @todo handle multiple years properly
+                $isbn2book_data[$backdrop] = (is_array($value) ? min($value) : $value);
+                break;
+              default:
+                $isbn2book_data[$backdrop] = $value;
+                break;
+            }
           }
         }
       }
@@ -319,16 +342,14 @@ function _isbn2node_make_node($fields) {
   $node->revision = 0;
 
   // Remove title.
-
   unset($fields['title']);
 
   // Handle the rest of the fields.
-
   foreach ($fields as $field => $value) {
     if ($field == 'isbn2node_cover') {
       $cover = array('fid' => 0);
-      // Handle special structure for image field.
 
+      // Handle special structure for image field.
       foreach ($value as $k => $v) {
         $cover[$k] = $v;
       }
@@ -336,7 +357,6 @@ function _isbn2node_make_node($fields) {
     }
     else {
       // Transfer normal field.
-
       $node->$field = array('und' => array(0 => array('value' => $value)));
     }
   }
@@ -413,25 +433,26 @@ function _isbn2node_isbn_exists($isbn) {
 
 
 /*
- * Search for title in external database
- * @param $title = Book title
- * @return an array of result values
+ * Search for title in external database.
+ *
+ * @param string $title
+ *   Book title. If using OpenLibrary, this can include other keywords.
+ * @return object
+ *   Result records from database search.
  */
 function _isbn2book_search_title($title) {
   $config = config('isbn2node.settings');
-  // @todo This data ought to be cached locally since ISBNdb only allows a certain number of calls each day.
 
+  // @todo This data ought to be cached locally since ISBNdb only allows a certain number of calls each day.
 
   switch ($config->get('isbn2node_db')) {
     case 'isbndb':
       // Form the url.
-
       $url = str_replace(array('%access_key', '%title_value'),
         array($config->get('isbn2node_isbndb_access_key'), urlencode($title)),
         ISBN2NODE_ISBNDB_TITLE_URL);
 
       // Get and parse the XML.
-
       $xml = file_get_contents($url);
       $p = xml_parser_create();
       xml_parse_into_struct($p, $xml, $vals, $index);
@@ -440,12 +461,12 @@ function _isbn2book_search_title($title) {
       break;
 
     case 'openlib':
-      $url = str_replace('%isbn_value',
-        $isbn,
-        ISBN2NODE_OPENLIBRARY_BOOK_URL);
+      // Form the URL.
+      $url = str_replace('%title_value',
+        urlencode($title),
+        ISBN2NODE_OPENLIBRARY_TITLE_URL);
 
       // Get and parse the Json.
-
       $json = file_get_contents($url);
       // _isbn2node_debug('json', $json);
 

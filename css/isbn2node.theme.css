@@ -1,0 +1,8 @@
+/* Default styling for book select form from Keyword search */
+p.isbn2node_form {
+    display: inline-block;
+}
+p.isbn2node_form > img {
+    float: left;
+    padding: 0.3em 1em 0 0;
+}
