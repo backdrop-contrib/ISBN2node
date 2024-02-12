@@ -6,4 +6,5 @@ version = "1.x-1.4"
 dependencies[] = image
 tags[] = Content
 configure = admin/config/content/isbn2node
+stylesheets[all][] = css/isbn2node.theme.css
 
