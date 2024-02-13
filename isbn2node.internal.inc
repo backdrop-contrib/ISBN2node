@@ -304,7 +304,7 @@ function _isbn2node_parse($vals, $isbn) {
                 break;
               case 'isbn2node_year':
 	      // @todo handle multiple years properly
-                $isbn2book_data[$backdrop] = (is_array($value) ? min($value) : $value);
+                $isbn2book_data[$backdrop] = (is_array($value) ? max($value) : $value);
                 break;
               default:
                 $isbn2book_data[$backdrop] = $value;
