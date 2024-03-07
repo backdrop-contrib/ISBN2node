@@ -16,19 +16,16 @@
  */
 function _isbn2book_fetch_data($isbn = '') {
   $config = config('isbn2node.settings');
+
   // @todo This data ought to be cached locally since ISBNdb only allows a certain number of calls each day.
-
-
   switch ($config->get('isbn2node_db')) {
     case 'isbndb':
       // Form the url.
-
       $url = str_replace(array('%access_key', '%isbn_value'),
         array($config->get('isbn2node_isbndb_access_key'), $isbn),
         ISBN2NODE_ISBNDB_URL);
 
       // Get and parse the XML.
-
       $xml = file_get_contents($url);
       $p = xml_parser_create();
       xml_parse_into_struct($p, $xml, $vals, $index);
@@ -443,8 +440,6 @@ function _isbn2node_isbn_exists($isbn) {
 function _isbn2book_search_title($title) {
   $config = config('isbn2node.settings');
 
-  // @todo This data ought to be cached locally since ISBNdb only allows a certain number of calls each day.
-
   switch ($config->get('isbn2node_db')) {
     case 'isbndb':
       // Form the url.
@@ -453,6 +448,7 @@ function _isbn2book_search_title($title) {
         ISBN2NODE_ISBNDB_TITLE_URL);
 
       // Get and parse the XML.
+      // @todo This data ought to be cached locally since ISBNdb only allows a certain number of calls each day.
       $xml = file_get_contents($url);
       $p = xml_parser_create();
       xml_parse_into_struct($p, $xml, $vals, $index);
@@ -497,7 +493,7 @@ function _isbn2book_search_title($title) {
  *   The variable(s) to be displayed in the debug message.
  */
 function _isbn2node_debug($varname, $vars) {
-  $debug = true;
+  $debug = false;
   if ($debug) {
     backdrop_set_message("<pre>DEBUG: $varname=" . print_r($vars, true) .  '</pre>');
   }

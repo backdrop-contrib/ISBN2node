@@ -17,15 +17,8 @@ define('ISBN2NODE_OPENLIBRARY_COVER_URL', 'https://covers.openlibrary.org/b/isbn
 define('ISBN2NODE_ISBNDB_TITLE_URL', 'http://isbndb.com/api/books.xml?access_key=%access_key&results=details&index1=title&value1=%title_value');
 define('ISBN2NODE_OPENLIBRARY_TITLE_URL', 'https://openlibrary.org/search.json?q=%title_value');
 
-
-/*
- * Implements hook_init().
- */
-function isbn2node_init() {
-  // Load file containing private module functions.
-
-  module_load_include('inc', 'isbn2node', 'isbn2node.internal');
-}
+// Load file containing internal module functions.
+include_once 'isbn2node.internal.inc';
 
 
 /**
@@ -46,31 +39,6 @@ function isbn2node_permission() {
       'description' => t('Allow user to use bulk add via ISBN.'),
     ),
   );
-}
-
-
-/**
- * Implements hook_help().
- */
-function isbn2node_help($path, $arg) {
-  switch ($path) {
-    case 'admin/help#isbn2node':
-
-      $output = '';
-      $output .= '<h3>' . t('About') . '</h3>';
-      $output .= '<p>' . t('The ISBN2node module will fetch book information based on ISBN\'s') . '</p>';
-      $output .= '<h3>' . t('How to use this module') . '</h3>';
-      $output .= '<p>' . t('This module creates a content type called ISBN2node-book, which can contain information on a physical book (do not confuse with Backdrop\'s existing book content type, which is something different.). <br />' .
-                           'You can add book information through a normal node form, but the main purpose of this module is to prepopulate a node form with information on the book based on its ISBN. You enter the ISBN and the module tries to fetch as much information on the book as possible - as well as its cover if available.') . '</p>';
-      $output .= '<h3>' . t('How to obtain a key for ISBNdb') . '</h3>';
-      $output .= '<p>' . t('If you want to use ISBNdb as your lookup database, you will need an access key to their API. Apply for this key on their web site, and enter the key in the settings for ISBN2node. You do not need a key if you use Open Library as your ISBN database.') . '</p>';
-
-      return $output;
-      break;
-
-    case 'admin/config/content/isbn2node':
-      return '<p>' . t('Configure the ISBN2node module by selecting which ISBN database you want to use and enter an access key if required.') . '</p>';
-  }
 }
 
 
@@ -97,6 +65,17 @@ function isbn2node_menu() {
     'description' => 'Enter the ISBN for a book and populate an ISBN-book record based on the data fetched.',
     'page callback' => 'backdrop_get_form',
     'page arguments' => array('isbn2node_add_form'),
+    'type' => MENU_NORMAL_ITEM | MENU_LOCAL_TASK,
+    'access arguments' => array('add by isbn'),
+    'weight' => 10,
+  );
+
+  // Add ISBN book via lookup with ISBN in URL.
+  $items['node/add/isbn2node-book/isbn2node/%'] = array(
+    'title' => 'Look up by ISBN',
+    'description' => 'Enter the ISBN for a book and populate an ISBN-book record based on the data fetched.',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('isbn2node_add_form', 4),
     'type' => MENU_NORMAL_ITEM | MENU_LOCAL_TASK,
     'access arguments' => array('add by isbn'),
     'weight' => 10,
@@ -187,17 +166,9 @@ function isbn2node_settings_form($form, &$form_state) {
 
 /**
  * Handle submission of the settings form.
- *
- * Will start each cron hook in sequence, log the results
- * and return to the main form.
+ * Backdrop handles saving the settings to the config file upon submission,
+ * so no need for an isbn2node_settings_form_submit function.
  */
-function isbn2node_settings_form_submit($form, &$form_state) {
-
-  // Save the values.
-  config_set('isbn2node.settings', 'isbn2node_db', $form_state['values']['isbn2node_db']);
-  config_set('isbn2node.settings', 'isbn2node_isbndb_access_key', $form_state['values']['isbn2node_isbndb_access_key']);
-  backdrop_set_message(t('Your settings have been saved'));
-}
 
 
 /*
@@ -208,7 +179,7 @@ function isbn2node_settings_form_submit($form, &$form_state) {
  * @return form
  *   Returns the form for adding a (single) book using its ISBN.
  */
-function isbn2node_add_form($isbn = '') {
+function isbn2node_add_form($form, &$form_state, $isbn = '') {
   $form = array();
 
   if (_isbn2node_check_settings($form)) {
@@ -217,12 +188,11 @@ function isbn2node_add_form($isbn = '') {
       '#title' => t('ISBN'),
       '#type' => 'textfield',
       '#required' => TRUE,
-      '#default_value' => '', // @todo  Was $isbn, but it's somehow an array.
+      '#default_value' => $isbn,
       '#description' => t('Enter the 10- or 13-digit ISBN for the book.'),
     );
 
     // Buttons.
-
     $form['buttons']['save'] = array(
       '#type' => 'submit',
       '#value' => t('Search'),
@@ -305,8 +275,8 @@ function isbn2node_add_form_submit($form, &$form_state) {
 
 
 /*
- * Add a book "manually" giving its ISBN in the url. URHERE
- * Fetches book data and goes on to the normal node/add form.
+ * Add a book "manually" by giving its ISBN in the url. Goes to
+ * the node/add form with only the ISBN pre-filled.
  *
  * @param string $isbn
  *   The ISBN of the book to add.
@@ -333,8 +303,8 @@ function isbn2node_add_manual($isbn) {
 function isbn2node_form_alter(&$form, &$form_state, $form_id) {
 
   switch ($form_id) {
-    // We only intervene on node form for a new node of the right node type.
 
+    // We only intervene on node form for a new node of the right node type.
     case 'isbn2node_book_node_form':
       // _isbn2node_debug('form', $form);
 
@@ -417,8 +387,8 @@ function isbn2node_form_alter(&$form, &$form_state, $form_id) {
  * Submit handler to add the book cover if the user has asked for it.
  */
 function isbn2node_form_submit(&$form, &$form_state) {
-  // User asked for preloaded cover.
 
+  // User asked for preloaded cover.
   if (!empty($form_state["input"]["isbn2node_use_img"])) {
     if (isset($form_state["values"]["xisbn"])) {
       $xisbn = $form_state["values"]["xisbn"];
@@ -432,8 +402,8 @@ function isbn2node_form_submit(&$form, &$form_state) {
 
       $form_state['values']["isbn2node_cover"]['und'][0]["fid"] = $file->fid;
     }
-    // Submission continues from here as usual.
 
+    // Submission continues from here as usual.
   }
 }
 
@@ -534,7 +504,7 @@ function isbn2node_title_form_submit(&$form, &$form_state) {
     isbn2node_add_form_submit($form, $form_state);
   }
   else {
-    // Look for title.
+    // Look for title / keywords.
     $title = trim($form_state['values']['title']);
 
     $vals = _isbn2book_search_title($title);
@@ -546,12 +516,11 @@ function isbn2node_title_form_submit(&$form, &$form_state) {
 
       // If we found too many results, advise adding more keywords.
       if ($vals->numFound > 10) {
-        backdrop_set_message(t('You may want to add more keywords to narrow down your search.'), 'warning');
+        backdrop_set_message(t("You may want to add more keywords to narrow down your search.\nDisplaying results from only the first 10 records."), 'warning');
       }
 
       $j = 0;
-      //for ($i=$vals->start; $i<$vals->numFound; $i++) { // real code
-      for ($i=$vals->start; $i<min(10,$vals->numFound); $i++) { // debug only
+      for ($i=$vals->start; $i<min(10,$vals->numFound); $i++) {
         $currentBook = $vals->docs[$i];
 
         $res[$i+$j]['title'] = $currentBook->title ?? '';

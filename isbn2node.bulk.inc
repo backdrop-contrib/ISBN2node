@@ -31,7 +31,6 @@ function isbn2node_bulk_form() {
     );
 
     // Buttons
-
     $form['buttons']['save'] = array(
       '#type' => 'submit',
       '#value' => t('Search'),
@@ -51,10 +50,6 @@ function isbn2node_bulk_form() {
 /*
  * Submit handler for the add bulk ISBN's form
  * Fetches book data for each ISBN and creates a node for each
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
  */
 function isbn2node_bulk_form_submit($form, &$form_state) {
   // Fetch book data for a list of ISBN's
@@ -87,11 +82,9 @@ function isbn2node_bulk_form_submit($form, &$form_state) {
           $isbn2book_data = _isbn2node_parse($vals, $isbn);
           if ($isbn2book_data) {
             // Insert ISBN
-
             $isbn2book_data['isbn2node_isbn'] = $isbn;
 
             // Fetch cover and create file object
-
             if ($form_state['values']['get_images']) {
               if (isset($isbn2book_data['xisbn'])) {
                 $xisbn = $isbn2book_data['xisbn'];
@@ -106,7 +99,6 @@ function isbn2node_bulk_form_submit($form, &$form_state) {
             }
 
             // Create and save the node
-
             _isbn2node_make_node($isbn2book_data);
           }
         }
