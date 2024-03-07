@@ -92,7 +92,7 @@ function isbn2node_menu() {
   );
 
   // Add ISBN book via lookup.
-  $items['node/add/isbn2node_book/isbn2node'] = array(
+  $items['node/add/isbn2node-book/isbn2node'] = array(
     'title' => 'Look up by ISBN',
     'description' => 'Enter the ISBN for a book and populate an ISBN-book record based on the data fetched.',
     'page callback' => 'backdrop_get_form',
@@ -103,7 +103,7 @@ function isbn2node_menu() {
   );
 
   // Bulk add books using a list of ISBNs.
-  $items['node/add/isbn2node_book/bulk'] = array(
+  $items['node/add/isbn2node-book/bulk'] = array(
     'title' => 'ISBN book bulk import',
     'description' => 'Enter a series of ISBN and create nodes based on lookups.',
     'page callback' => 'backdrop_get_form',
@@ -115,7 +115,7 @@ function isbn2node_menu() {
   );
 
   // Title / keyword search.
-  $items['node/add/isbn2node_book/title'] = array(
+  $items['node/add/isbn2node-book/title'] = array(
     'title' => 'Title/ keyword search',
     'description' => 'Search for books through keywords, e.g. title and author.',
     'page callback' => 'backdrop_get_form',
@@ -414,7 +414,7 @@ function isbn2node_form_alter(&$form, &$form_state, $form_id) {
 
 
 /*
- * Submit handler for the form to add a book "manually."
+ * Submit handler to add the book cover if the user has asked for it.
  */
 function isbn2node_form_submit(&$form, &$form_state) {
   // User asked for preloaded cover.

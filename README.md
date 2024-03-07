@@ -16,8 +16,8 @@ Required Modules
 
 This module requires that the following modules are also enabled:
 
-- [Node](Backdrop core module)
-- [Image](Backdrop core module)
+- Node Backdrop core module
+- Image Backdrop core module
 
 
 Installation
