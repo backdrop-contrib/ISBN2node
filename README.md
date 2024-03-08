@@ -40,14 +40,14 @@ Documentation
 -------------
 
 Additional documentation is located in the Wiki:
-https://github.com/backdrop-contrib/isbn2node/wiki/Documentation.
+https://github.com/backdrop-contrib/ISBN2node/wiki/Documentation.
 
 
 Issues
 ------
 
 Bugs and Feature Requests should be reported in the Issue Queue:
-https://github.com/backdrop-contrib/mymodule/issues.
+https://github.com/backdrop-contrib/ISBN2node/issues.
 
 
 Current Maintainers
